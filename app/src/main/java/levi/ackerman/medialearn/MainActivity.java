@@ -5,6 +5,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.os.Bundle;
 
 public class MainActivity extends AppCompatActivity {
+    static {
+        System.loadLibrary("test-lib");
+        System.loadLibrary("native-lib");
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -13,6 +17,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void testSo(View view) {
-
+        System.out.println("hello test: "+test());
     }
+
+    public native int test();
 }
