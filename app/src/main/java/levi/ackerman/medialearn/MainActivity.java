@@ -6,7 +6,6 @@ import android.os.Bundle;
 
 public class MainActivity extends AppCompatActivity {
     static {
-        System.loadLibrary("test-lib");
         System.loadLibrary("native-lib");
     }
 
