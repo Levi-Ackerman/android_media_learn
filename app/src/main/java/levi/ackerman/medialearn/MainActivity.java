@@ -7,6 +7,7 @@ import android.os.Bundle;
 public class MainActivity extends AppCompatActivity {
     static {
         System.loadLibrary("native-lib");
+        System.loadLibrary("avutil");
     }
 
     @Override
