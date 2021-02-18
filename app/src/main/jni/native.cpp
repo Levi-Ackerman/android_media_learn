@@ -5,12 +5,14 @@
 #include <stdio.h>
 #include <jni.h>
 #include <android/log.h>
+#include <memory>
 extern "C" {
 #include "libavutil/log.h"
 #include "libavformat/avformat.h"
 #include "pcm.h"
 }
 #include "audio_decoder.h"
+#include "media_file.h"
 #define null NULL
 
 static const char *filename = "/sdcard/1/marvel.mp4";
@@ -29,7 +31,7 @@ void dump_format() {
 
 void play_audio() {
   std::atomic_bool value(true);
-  AudioDecoder *decoder = new AudioDecoder(filename, &value, [](PCM* pcm) {
+  AudioDecoder *decoder = new AudioDecoder(filename, &value, [](PCM *pcm) {
     if (pcm == nullptr) {
       __android_log_print(ANDROID_LOG_INFO, "ndk", "pcm_callback null");
     } else {
@@ -51,3 +53,21 @@ void hello() {
   printf("hello");
 }
 
+extern "C"
+JNIEXPORT jlong JNICALL
+Java_levi_ackerman_medialearn_MediaFile_createNativeObj(JNIEnv *env, jobject thiz, jstring file_name) {
+  jsize length = env->GetStringUTFLength(file_name);
+  char* c_file_name = new char[length];
+  env->GetStringUTFRegion(file_name,0,length,c_file_name);
+  std::shared_ptr<char> sp(c_file_name);
+  auto mediaFile = new MediaFile(sp);
+  sp.reset();
+  return reinterpret_cast<jlong>(mediaFile);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_levi_ackerman_medialearn_MediaFile_recoverNativeObj(JNIEnv *env, jobject thiz, jlong ptr) {
+  auto mediaFile = reinterpret_cast<MediaFile*>(ptr);
+  mediaFile->print();
+}
