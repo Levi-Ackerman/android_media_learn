@@ -2,12 +2,17 @@
 cmake_minimum_required(VERSION 3.4.1)
 set(CMAKE_ANDROID_NDK "/Users/bytedance/bytedance/android-ndk-r14b")
 
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_FLAGS -std=c++11)
+
 # 添加本地so库 native-lib：这个是声明引用so库的名称 SHARED：表示共享so库文件
 # 构建so库的源文件
 add_library(
     native-lib
     SHARED
-    native.c
+        native.cpp
+        audio_decoder.cpp
 )
 # 使用系统ndk 提供的库，如 log库
 # log-lib 这个指定的是在NDK库中每个类型的库会存放一个特定的位置，而log库存放
@@ -19,7 +24,7 @@ find_library(
 )
 #----------------------ffmpeg的库文件------------
 # 加载头文件
-include_directories(./ffmpeg)
+include_directories(./ffmpeg ./include)
 
 # 加载avcodec-57库
 add_library( avcodec-57
