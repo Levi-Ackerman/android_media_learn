@@ -6,9 +6,9 @@
 #define CDEMO_PCM_H
 
 typedef struct PCM{
-    uint8_t * data;
-    int size;
-    int64_t pts_us;
+  int64_t pts_us;
+  int size;
+  uint8_t * data;
 } PCM;
 
 #endif //CDEMO_PCM_H
