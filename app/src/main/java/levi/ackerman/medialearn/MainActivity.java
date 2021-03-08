@@ -1,26 +1,21 @@
 package levi.ackerman.medialearn;
 
+import android.os.Bundle;
 import android.view.View;
 import androidx.appcompat.app.AppCompatActivity;
-import android.os.Bundle;
+import levi.ackerman.medialearn.chapter01.MediaPlayerFragment;
 
 public class MainActivity extends AppCompatActivity {
-    private AudioPlayer mAudioPlayer;
-
-    public void test2(View view) {
-        mAudioPlayer.play();
-    }
-
-    static {
-        System.loadLibrary("native-lib");
-        System.loadLibrary("avutil");
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mAudioPlayer = new AudioPlayer("/sdcard/1/marvel.mp4");
     }
 
+    public void jumpChapter01(View view) {
+        getSupportFragmentManager().beginTransaction().replace(android.R.id.content,
+                MediaPlayerFragment.instantiate(this, MediaPlayerFragment.class.getName()))
+                .addToBackStack(MediaPlayerFragment.class.getName()).commit();
+    }
 }

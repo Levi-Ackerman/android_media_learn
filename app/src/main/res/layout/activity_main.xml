@@ -8,14 +8,8 @@
     tools:context=".MainActivity">
 
     <Button
+        android:text="第一节"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:onClick="testSo"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <Button
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:onClick="test2"/>
-
+        android:onClick="jumpChapter01"/>
 </LinearLayout>
