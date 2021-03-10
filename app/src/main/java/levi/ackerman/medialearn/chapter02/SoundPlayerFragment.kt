@@ -43,9 +43,13 @@ class SoundPlayerFragment : BaseFragment() {
         btnPlayAudioTrack.setOnClickListener {
             playWithAudioTrack()
         }
+        btnPlayOpenSL.setOnClickListener{
+            playWithOpenSL()
+        }
     }
 
     private fun playWithOpenSL() {
+        BridgeUtil02.playAudioWithOpenSL()
     }
 
     private fun playWithAudioTrack() {
