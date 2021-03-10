@@ -8,8 +8,13 @@
     tools:context=".MainActivity">
 
     <Button
-        android:text="第一节"
+        android:text="第一节 内置MediaPlayer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:onClick="jumpChapter01"/>
+    <Button
+        android:text="第二节 播放音频"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:onClick="jumpChapter02"/>
 </LinearLayout>
