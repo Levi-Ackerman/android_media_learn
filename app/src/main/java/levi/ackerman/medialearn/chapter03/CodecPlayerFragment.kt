@@ -34,7 +34,10 @@ class CodecPlayerFragment : BaseFragment() {
         const val EVENT_CLICK_PLAY = 0
         const val EVENT_SURFACEVIEW_CREATED = 1
         const val EVENT_PREPARED_SUCCESS = 2
+        const val EVENT_CLICK_PAUSE = 3
     }
+
+    private var lastEvent = -1
 
     private lateinit var surfaceViewContainer: ViewGroup
     private lateinit var playButton: Button
@@ -44,6 +47,11 @@ class CodecPlayerFragment : BaseFragment() {
     private lateinit var mediaFileName: String
     private lateinit var mediaExtractor: MediaExtractor
     private val mediaInfo: MediaInfo = MediaInfo()
+    private lateinit var audioCodec: MediaCodec
+    private lateinit var playWithAudioTrack: AudioTrack
+
+    private var running = false
+
 
     private fun log(text: String) {
         LogUtil.i(this.javaClass.simpleName, text)
@@ -53,9 +61,16 @@ class CodecPlayerFragment : BaseFragment() {
         override fun handleMessage(msg: Message) {
             super.handleMessage(msg)
             when (msg.what) {
+                EVENT_CLICK_PAUSE->{
+                    running = false
+                }
                 EVENT_CLICK_PLAY -> {
                     log("onClickPlayButton")
-                    prepareMediaInfo()
+                    if(lastEvent == -1) {
+                        prepareMediaInfo()
+                    }else{
+                        startCodec()
+                    }
                 }
                 EVENT_PREPARED_SUCCESS -> {
                     log("onPrepareMediaInfo SUCCESS")
@@ -69,6 +84,7 @@ class CodecPlayerFragment : BaseFragment() {
 
                 }
             }
+            lastEvent = msg.what
         }
     }
 
@@ -97,56 +113,60 @@ class CodecPlayerFragment : BaseFragment() {
 
     private fun onSurfaceViewCreated() {
         if (mediaInfo.audioInfo != null) {
-            val audioCodec = MediaCodec.createDecoderByType(mediaInfo.audioInfo!!.mineType)
+            audioCodec = MediaCodec.createDecoderByType(mediaInfo.audioInfo!!.mineType)
             audioCodec.configure(mediaInfo.audioInfo!!.mediaFormat, null, null, 0)
             audioCodec.start()
             val audioPlayer = AudioPlayer()
             log("audio codec is started !")
-            val playWithAudioTrack =
-                audioPlayer.playWithAudioTrack(activity!!, mediaInfo.audioInfo!!.sampleRate)
+            playWithAudioTrack = audioPlayer.playWithAudioTrack(activity!!, mediaInfo.audioInfo!!.sampleRate)
             playWithAudioTrack.play()
-            mediaExtractor.selectTrack(mediaInfo.audioInfo!!.trackIndex)
-            TaskPool.post(BACKGROUND) {
-                while (true) {
-                    val index = audioCodec.dequeueInputBuffer(-1)
-                    if (index < 0) {
-                        Thread.sleep(10)
-                        continue
-                    }
-                    val inputBuffer = audioCodec.getInputBuffer(index)
-                    if (inputBuffer == null) {
-                        Thread.sleep(10)
-                        continue
-                    }
-                    inputBuffer.clear()
-                    val length = mediaExtractor.readSampleData(inputBuffer, 0)
-                    if (length < 0) {
-                        //读到末尾了，给一个end标记位给解码器
-                        audioCodec.queueInputBuffer(index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                        break
-                    }
-                    audioCodec.queueInputBuffer(index, 0, length, mediaExtractor.sampleTime, 0)
-                    mediaExtractor.advance()
+            startCodec()
+        }
+    }
+
+    private fun startCodec() {
+        running = true
+        TaskPool.post(BACKGROUND) {
+            while (running) {
+                mediaExtractor.selectTrack(mediaInfo.audioInfo!!.trackIndex)
+                val index = audioCodec.dequeueInputBuffer(-1)
+                if (index < 0) {
+                    Thread.sleep(10)
+                    continue
                 }
+                val inputBuffer = audioCodec.getInputBuffer(index)
+                if (inputBuffer == null) {
+                    Thread.sleep(10)
+                    continue
+                }
+                inputBuffer.clear()
+                val length = mediaExtractor.readSampleData(inputBuffer, 0)
+                if (length < 0) {
+                    //读到末尾了，给一个end标记位给解码器
+                    audioCodec.queueInputBuffer(index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                    break
+                }
+                audioCodec.queueInputBuffer(index, 0, length, mediaExtractor.sampleTime, 0)
+                mediaExtractor.advance()
             }
-            TaskPool.post(BACKGROUND) {
-                while (true) {
-                    val bufferInfo = MediaCodec.BufferInfo()
-                    bufferInfo.flags = 0
-                    val index = audioCodec.dequeueOutputBuffer(bufferInfo, -1)
-                    if (bufferInfo.flags.and(MediaCodec.BUFFER_FLAG_END_OF_STREAM) == MediaCodec.BUFFER_FLAG_END_OF_STREAM) {
-                        //结束了
-                        audioCodec.stop()
-                        break
-                    }
-                    if (index < 0) {
-                        Thread.sleep(10)
-                        continue
-                    }
-                    val outputBuffer = audioCodec.getOutputBuffer(index)
-                    playWithAudioTrack.write(outputBuffer!!, bufferInfo.size, AudioTrack.WRITE_BLOCKING)
-                    audioCodec.releaseOutputBuffer(index, false)
+        }
+        TaskPool.post(BACKGROUND) {
+            while (running) {
+                val bufferInfo = BufferInfo()
+                bufferInfo.flags = 0
+                val index = audioCodec.dequeueOutputBuffer(bufferInfo, -1)
+                if (bufferInfo.flags.and(MediaCodec.BUFFER_FLAG_END_OF_STREAM) == MediaCodec.BUFFER_FLAG_END_OF_STREAM) {
+                    //结束了
+                    audioCodec.stop()
+                    break
                 }
+                if (index < 0) {
+                    Thread.sleep(10)
+                    continue
+                }
+                val outputBuffer = audioCodec.getOutputBuffer(index)
+                playWithAudioTrack.write(outputBuffer!!, bufferInfo.size, AudioTrack.WRITE_BLOCKING)
+                audioCodec.releaseOutputBuffer(index, false)
             }
         }
     }
