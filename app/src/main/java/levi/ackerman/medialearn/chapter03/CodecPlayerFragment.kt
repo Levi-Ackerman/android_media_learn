@@ -1,6 +1,7 @@
 package levi.ackerman.medialearn.chapter03
 
 import android.media.MediaCodec
+import android.media.MediaCodec.BufferInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.os.Handler
@@ -13,9 +14,13 @@ import android.widget.Button
 import androidx.fragment.app.Fragment
 import levi.ackerman.medialearn.BaseFragment
 import levi.ackerman.medialearn.R
+import levi.ackerman.medialearn.chapter02.AudioPlayer
 import levi.ackerman.medialearn.util.LogUtil
 import levi.ackerman.medialearn.util.TASK_TYPE.BACKGROUND
 import levi.ackerman.medialearn.util.TaskPool
+import levi.ackerman.medialearn.util.showToast
+import java.io.File
+import java.nio.ByteBuffer
 
 /**
  * A simple [Fragment] subclass.
@@ -67,6 +72,10 @@ class CodecPlayerFragment : BaseFragment() {
     }
 
     private fun prepareMediaInfo() {
+        if (!File(mediaFileName).exists()){
+            activity!!.showToast("文件不存在，请先初始化")
+            return
+        }
         mediaExtractor = MediaExtractor()
         mediaExtractor.setDataSource(mediaFileName)
         for (i in 0 until mediaExtractor.trackCount) {
@@ -90,7 +99,12 @@ class CodecPlayerFragment : BaseFragment() {
             val audioCodec = MediaCodec.createDecoderByType(mediaInfo.audioInfo!!.mineType)
             audioCodec.configure(mediaInfo.audioInfo!!.mediaFormat, null, null, 0)
             audioCodec.start()
+            val audioPlayer = AudioPlayer()
             log("audio codec is started !")
+            val playWithAudioTrack =
+                audioPlayer.playWithAudioTrack(activity!!, mediaInfo.audioInfo!!.sampleRate)
+            playWithAudioTrack.play()
+            mediaExtractor.selectTrack(mediaInfo.audioInfo!!.trackIndex)
             TaskPool.post(BACKGROUND) {
                 while (true) {
                     val index = audioCodec.dequeueInputBuffer(-1)
@@ -103,7 +117,7 @@ class CodecPlayerFragment : BaseFragment() {
                         Thread.sleep(10)
                         continue
                     }
-                    mediaExtractor.selectTrack(mediaInfo.audioInfo!!.trackIndex)
+                    inputBuffer.clear()
                     val length = mediaExtractor.readSampleData(inputBuffer, 0)
                     if (length < 0) {
                         //读到末尾了，给一个end标记位给解码器
@@ -129,11 +143,18 @@ class CodecPlayerFragment : BaseFragment() {
                         continue
                     }
                     val outputBuffer = audioCodec.getOutputBuffer(index)
+//                    useAudioData(outputBuffer, bufferInfo)
+                    val pcm = ByteArray(bufferInfo.size)
+                    outputBuffer!!.get(pcm)
+                    playWithAudioTrack.write(pcm,0, pcm.size)
                     audioCodec.releaseOutputBuffer(index, false)
-
                 }
             }
         }
+    }
+
+    private fun useAudioData(outputBuffer: ByteBuffer?, bufferInfo: BufferInfo) {
+        //pcm数据播放出来
     }
 
     private fun createSurfaceView() {
