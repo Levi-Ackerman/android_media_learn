@@ -7,7 +7,7 @@ class MediaInfo() {
     var audioInfo: AudioInfo? = null
 }
 
-class VideoInfo {
+class VideoInfo(val mediaFormat: MediaFormat, val trackIndex: Int, val mineType: String, width: Int, height: Int, frameRate: Int) {
 
 }
 

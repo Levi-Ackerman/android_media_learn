@@ -3,6 +3,7 @@ package levi.ackerman.medialearn.chapter03
 import android.media.AudioTrack
 import android.media.MediaCodec
 import android.media.MediaCodec.BufferInfo
+import android.media.MediaCodec.createDecoderByType
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.os.Handler
@@ -48,10 +49,10 @@ class CodecPlayerFragment : BaseFragment() {
     private lateinit var mediaExtractor: MediaExtractor
     private val mediaInfo: MediaInfo = MediaInfo()
     private lateinit var audioCodec: MediaCodec
+    private lateinit var videoCodec: MediaCodec
     private lateinit var playWithAudioTrack: AudioTrack
 
     private var running = false
-
 
     private fun log(text: String) {
         LogUtil.i(this.javaClass.simpleName, text)
@@ -61,14 +62,14 @@ class CodecPlayerFragment : BaseFragment() {
         override fun handleMessage(msg: Message) {
             super.handleMessage(msg)
             when (msg.what) {
-                EVENT_CLICK_PAUSE->{
+                EVENT_CLICK_PAUSE -> {
                     running = false
                 }
                 EVENT_CLICK_PLAY -> {
                     log("onClickPlayButton")
-                    if(lastEvent == -1) {
+                    if (lastEvent == -1) {
                         prepareMediaInfo()
-                    }else{
+                    } else {
                         startCodec()
                     }
                 }
@@ -89,7 +90,7 @@ class CodecPlayerFragment : BaseFragment() {
     }
 
     private fun prepareMediaInfo() {
-        if (!File(mediaFileName).exists()){
+        if (!File(mediaFileName).exists()) {
             activity!!.showToast("文件不存在，请先初始化")
             return
         }
@@ -105,7 +106,10 @@ class CodecPlayerFragment : BaseFragment() {
                 val channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
                 mediaInfo.audioInfo = AudioInfo(format, i, mineType, sampleRate, channelCount)
             } else if (mineType?.startsWith("video/") == true) {
-
+                val frameRate = format.getInteger(MediaFormat.KEY_FRAME_RATE)
+                val width = format.getInteger(MediaFormat.KEY_WIDTH)
+                val height = format.getInteger(MediaFormat.KEY_HEIGHT)
+                mediaInfo.videoInfo = VideoInfo(format, i, mineType, width, height, frameRate)
             }
         }
         handler.sendEmptyMessage(EVENT_PREPARED_SUCCESS)
@@ -120,6 +124,10 @@ class CodecPlayerFragment : BaseFragment() {
             log("audio codec is started !")
             playWithAudioTrack = audioPlayer.playWithAudioTrack(activity!!, mediaInfo.audioInfo!!.sampleRate)
             playWithAudioTrack.play()
+
+            videoCodec = createDecoderByType(mediaInfo.videoInfo!!.mineType)
+            videoCodec.configure(mediaInfo.videoInfo!!.mediaFormat, surfaceView.holder.surface, null, 0)
+            videoCodec.start()
             startCodec()
         }
     }
@@ -127,46 +135,95 @@ class CodecPlayerFragment : BaseFragment() {
     private fun startCodec() {
         running = true
         TaskPool.post(BACKGROUND) {
+            var audioFinish = false
+            var videoFinish = false
             while (running) {
-                mediaExtractor.selectTrack(mediaInfo.audioInfo!!.trackIndex)
-                val index = audioCodec.dequeueInputBuffer(-1)
-                if (index < 0) {
-                    Thread.sleep(10)
-                    continue
+                var audioReady = false
+                var videoReady = false
+                if (!audioFinish) {
+                    mediaExtractor.selectTrack(mediaInfo.audioInfo!!.trackIndex)
+                    val audioIndex = audioCodec.dequeueInputBuffer(-1)
+                    audioReady = audioIndex >= 0
+                    if (audioReady) {
+                        val inputBuffer = audioCodec.getInputBuffer(audioIndex)
+                        inputBuffer!!.clear()
+                        val length = mediaExtractor.readSampleData(inputBuffer, 0)
+                        if (length < 0) {
+                            //读到末尾了，给一个end标记位给解码器
+                            audioCodec.queueInputBuffer(audioIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            audioFinish = true
+                        }
+                        audioCodec.queueInputBuffer(audioIndex, 0, length, mediaExtractor.sampleTime, 0)
+                        mediaExtractor.advance()
+                    }
                 }
-                val inputBuffer = audioCodec.getInputBuffer(index)
-                if (inputBuffer == null) {
-                    Thread.sleep(10)
-                    continue
-                }
-                inputBuffer.clear()
-                val length = mediaExtractor.readSampleData(inputBuffer, 0)
-                if (length < 0) {
-                    //读到末尾了，给一个end标记位给解码器
-                    audioCodec.queueInputBuffer(index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+//                if (!videoFinish) {
+//                    mediaExtractor.selectTrack(mediaInfo.videoInfo!!.trackIndex)
+//                    val videoIndex = videoCodec.dequeueInputBuffer(-1)
+//                    videoReady = videoIndex >= 0
+//                    if (videoReady) {
+//                        val inputBuffer = videoCodec.getInputBuffer(videoIndex)
+//                        inputBuffer!!.clear()
+//                        val length = mediaExtractor.readSampleData(inputBuffer, 0)
+//                        if (length < 0) {
+//                            videoCodec.queueInputBuffer(videoIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+//                            videoFinish = true
+//                        }
+//                        videoCodec.queueInputBuffer(videoIndex, 0, length, mediaExtractor.sampleTime, 0)
+//                        mediaExtractor.advance()
+//                    }
+//                }
+
+                if (videoFinish && audioFinish) {
                     break
                 }
-                audioCodec.queueInputBuffer(index, 0, length, mediaExtractor.sampleTime, 0)
-                mediaExtractor.advance()
+                if (!audioReady && !videoReady) {
+                    Thread.sleep(10)
+                }
             }
         }
         TaskPool.post(BACKGROUND) {
+            var audioFinish = false
+            var videoFinish = false
             while (running) {
-                val bufferInfo = BufferInfo()
-                bufferInfo.flags = 0
-                val index = audioCodec.dequeueOutputBuffer(bufferInfo, -1)
-                if (bufferInfo.flags.and(MediaCodec.BUFFER_FLAG_END_OF_STREAM) == MediaCodec.BUFFER_FLAG_END_OF_STREAM) {
-                    //结束了
-                    audioCodec.stop()
+                var audioReady = false
+                var videoReady = false
+                if (!audioFinish) {
+                    val bufferInfo = BufferInfo()
+                    bufferInfo.flags = 0
+                    val index = audioCodec.dequeueOutputBuffer(bufferInfo, -1)
+                    if (bufferInfo.flags.and(MediaCodec.BUFFER_FLAG_END_OF_STREAM) == MediaCodec.BUFFER_FLAG_END_OF_STREAM) {
+                        //结束了
+                        audioCodec.stop()
+                        audioFinish = true
+                    }
+                    audioReady = index >= 0
+                    if (audioReady) {
+                        val outputBuffer = audioCodec.getOutputBuffer(index)
+                        playWithAudioTrack.write(outputBuffer!!, bufferInfo.size, AudioTrack.WRITE_BLOCKING)
+                        audioCodec.releaseOutputBuffer(index, false)
+                    }
+                }
+//                if (!videoFinish) {
+//                    val bufferInfo = BufferInfo()
+//                    bufferInfo.flags = 0
+//                    val index = videoCodec.dequeueOutputBuffer(bufferInfo, -1)
+//                    if (bufferInfo.flags.and(MediaCodec.BUFFER_FLAG_END_OF_STREAM) == MediaCodec.BUFFER_FLAG_END_OF_STREAM) {
+//                        videoCodec.stop()
+//                        videoFinish = true
+//                    }
+//                    videoReady = index >= 0
+//                    if (videoReady) {
+//                        val outputBuffer = videoCodec.getOutputBuffer(index)
+//                        videoCodec.releaseOutputBuffer(index, true)
+//                    }
+//                }
+                if (videoFinish && audioFinish){
                     break
                 }
-                if (index < 0) {
+                if (!videoReady && !audioReady){
                     Thread.sleep(10)
-                    continue
                 }
-                val outputBuffer = audioCodec.getOutputBuffer(index)
-                playWithAudioTrack.write(outputBuffer!!, bufferInfo.size, AudioTrack.WRITE_BLOCKING)
-                audioCodec.releaseOutputBuffer(index, false)
             }
         }
     }
