@@ -6,6 +6,12 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     tools:context=".MainActivity">
+    <Button
+        android:id="@+id/btn_init"
+        android:text="初始化"
+        android:onClick="initParams"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
 
     <Button
         android:text="第一节 内置MediaPlayer"
@@ -17,4 +23,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:onClick="jumpChapter02"/>
+    <Button
+        android:text="第三节 CodeC播放器"
+        android:onClick="jumpChapter03"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
 </LinearLayout>
