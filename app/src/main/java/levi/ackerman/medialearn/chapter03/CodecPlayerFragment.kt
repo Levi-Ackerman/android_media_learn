@@ -16,6 +16,8 @@ import levi.ackerman.medialearn.R
 import levi.ackerman.medialearn.util.LogUtil
 import levi.ackerman.medialearn.util.TASK_TYPE.BACKGROUND
 import levi.ackerman.medialearn.util.TaskPool
+import levi.ackerman.medialearn.util.showToast
+import java.io.File
 
 /**
  * A simple [Fragment] subclass.
