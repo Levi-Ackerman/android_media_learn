@@ -10,6 +10,7 @@ import levi.ackerman.medialearn.R.layout
 import levi.ackerman.medialearn.chapter01.MediaPlayerFragment
 import levi.ackerman.medialearn.chapter02.SoundPlayerFragment
 import levi.ackerman.medialearn.chapter03.CodecPlayerFragment
+import levi.ackerman.medialearn.chapter04.FFMpegFragment
 import levi.ackerman.medialearn.util.showToast
 import java.io.File
 import java.io.FileOutputStream
@@ -70,5 +71,9 @@ class MainActivity : AppCompatActivity() {
             id.content,
             Fragment.instantiate(this, fragmentClazz.name, data))
             .addToBackStack(fragmentClazz.name).commit()
+    }
+
+    fun jumpChapter04(view: View) {
+        jumpFragment(FFMpegFragment::class.java)
     }
 }

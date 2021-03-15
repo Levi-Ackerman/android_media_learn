@@ -1,6 +1,7 @@
 package levi.ackerman.medialearn.chapter03
 
 import android.media.AudioTrack
+import android.media.AudioTrack.OnPlaybackPositionUpdateListener
 import android.media.MediaCodec
 import android.media.MediaCodec.BufferInfo
 import android.media.MediaCodec.createDecoderByType
@@ -50,7 +51,7 @@ class CodecPlayerFragment : BaseFragment() {
     private val mediaInfo: MediaInfo = MediaInfo()
     private lateinit var audioCodec: MediaCodec
     private lateinit var videoCodec: MediaCodec
-    private lateinit var playWithAudioTrack: AudioTrack
+    private lateinit var audioTrack: AudioTrack
 
     private var running = false
 
@@ -64,12 +65,14 @@ class CodecPlayerFragment : BaseFragment() {
             when (msg.what) {
                 EVENT_CLICK_PAUSE -> {
                     running = false
+                    audioTrack.pause()
                 }
                 EVENT_CLICK_PLAY -> {
                     log("onClickPlayButton")
                     if (lastEvent == -1) {
                         prepareMediaInfo()
                     } else {
+                        audioTrack.play()
                         startCodec()
                     }
                 }
@@ -122,11 +125,11 @@ class CodecPlayerFragment : BaseFragment() {
             audioCodec.start()
             val audioPlayer = AudioPlayer()
             log("audio codec is started !")
-            playWithAudioTrack = audioPlayer.playWithAudioTrack(activity!!, mediaInfo.audioInfo!!.sampleRate)
-            playWithAudioTrack.play()
+            audioTrack = audioPlayer.playWithAudioTrack(activity!!, mediaInfo.audioInfo!!.sampleRate)
+            audioTrack.play()
 
             videoCodec = createDecoderByType(mediaInfo.videoInfo!!.mineType)
-            videoCodec.configure(mediaInfo.videoInfo!!.mediaFormat, surfaceView.holder.surface, null, 0)
+            videoCodec.configure(mediaInfo.videoInfo!!.mediaFormat, null, null, 0)
             videoCodec.start()
             startCodec()
         }
@@ -200,7 +203,7 @@ class CodecPlayerFragment : BaseFragment() {
                     audioReady = index >= 0
                     if (audioReady) {
                         val outputBuffer = audioCodec.getOutputBuffer(index)
-                        playWithAudioTrack.write(outputBuffer!!, bufferInfo.size, AudioTrack.WRITE_BLOCKING)
+                        audioTrack.write(outputBuffer!!, bufferInfo.size, AudioTrack.WRITE_BLOCKING)
                         audioCodec.releaseOutputBuffer(index, false)
                     }
                 }
@@ -215,7 +218,8 @@ class CodecPlayerFragment : BaseFragment() {
 //                    videoReady = index >= 0
 //                    if (videoReady) {
 //                        val outputBuffer = videoCodec.getOutputBuffer(index)
-//                        videoCodec.releaseOutputBuffer(index, true)
+//                        LogUtil.i("lee111","${bufferInfo.offset}-${bufferInfo.size}")
+//                        videoCodec.releaseOutputBuffer(index, false)
 //                    }
 //                }
                 if (videoFinish && audioFinish){
@@ -226,10 +230,6 @@ class CodecPlayerFragment : BaseFragment() {
                 }
             }
         }
-    }
-
-    private fun useAudioData(outputBuffer: ByteBuffer?, bufferInfo: BufferInfo) {
-        //pcm数据播放出来
     }
 
     private fun createSurfaceView() {
@@ -256,6 +256,9 @@ class CodecPlayerFragment : BaseFragment() {
         playButton = rootView.findViewById(R.id.btn_play)
         stopButton = rootView.findViewById(R.id.stop_play)
         surfaceViewContainer = rootView.findViewById(R.id.container_sv_player)
+        stopButton.setOnClickListener {
+            handler.sendEmptyMessage(EVENT_CLICK_PAUSE)
+        }
         playButton.setOnClickListener {
             handler.sendEmptyMessage(EVENT_CLICK_PLAY)
         }
